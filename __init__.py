@@ -20,17 +20,19 @@ def onMorphManPreferences():
 
 
 def main():
+    mw.form.menuTools.addSeparator()
+    
     # Add recalculate menu button
     a = QAction( '&MorphMan Recalc', mw )
     a.setStatusTip(_("Recalculate all.db, note fields, and new card ordering"))
-    a.setShortcut(_("Ctrl+M"))
+    #a.setShortcut(_("Ctrl+M"))
     a.triggered.connect(onMorphManRecalc)
     mw.form.menuTools.addAction( a )
 
     # Add gui preferences menu button
     a = QAction( 'MorphMan &Preferences', mw )
     a.setStatusTip(_("Change inspected cards, fields and tags"))
-    a.setShortcut(_("Ctrl+O"))
+    #a.setShortcut(_("Ctrl+O"))
     a.triggered.connect(onMorphManPreferences)
     mw.form.menuTools.addAction( a )
 
