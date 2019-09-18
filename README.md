@@ -1,3 +1,5 @@
+<strong>NOTE: This repository has been merged back into kaegi's fork of Morphman. For the latest Morphman updates, go [here](https://github.com/kaegi/MorphMan).</strong>
+
 # MorphMan
 
 <a title="Rate on AnkiWeb" href="https://ankiweb.net/shared/info/900801631"><img src="https://glutanimate.com/logos/ankiweb-rate.svg"></a>
