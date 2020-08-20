@@ -1,87 +1,77 @@
-#-*- coding: utf-8 -*-
-import glob, gzip, os, pickle as pickle
+# -*- coding: utf-8 -*-
+import gzip
+import pickle as pickle
 
-from .util import addHook, cfg1, wrap, mw
-from aqt import toolbar
+from anki.hooks import wrap
+from anki.lang import _
+from aqt import toolbar, gui_hooks
+from aqt.utils import tooltip
 
-def getStatsPath(): return cfg1('path_stats')
+from .util import mw
+from .preferences import get_preference as cfg
+
+
+def getStatsPath(): return cfg('path_stats')
+
 
 def loadStats():
     try:
-        f = gzip.open( getStatsPath(), 'rb' )
-        d = pickle.load( f )
+        f = gzip.open(getStatsPath())
+        d = pickle.load(f)
         f.close()
         return d
-    except IOError:         # file DNE => create it
+    except IOError:  # file DNE => create it
         return updateStats()
     except AssertionError:  # profile not loaded yet, can't do anything but wait
         return None
 
-def saveStats( d ):
-    f = gzip.open( getStatsPath(), 'wb' )
-    pickle.dump( d, f, -1 )
+
+def saveStats(d):
+    f = gzip.open(getStatsPath(), 'wb')
+    pickle.dump(d, f, -1)
     f.close()
 
-def updateStats( knownDb=None ):
-    mw.progress.start( label='Updating stats', immediate=True )
+
+def updateStats(known_db=None):
+    mw.progress.start(label='Updating stats', immediate=True)
 
     from .morphemes import MorphDb
-    d = {}
 
     # Load known.db and get total morphemes known
-    if knownDb is None:
-        knownDb = MorphDb( cfg1('path_known'), ignoreErrors=True )
+    if known_db is None:
+        known_db = MorphDb(cfg('path_known'), ignoreErrors=True)
 
-    d['totalKnown'] = len( knownDb.db )
+    d = {'totalVariations': len(known_db.db), 'totalKnown': len(known_db.groups)}
 
-    # Load Goal.*.db dbs, get morphemes required, and compare vs known.db
-    d['goals'] = {}
-    goalDbPaths = glob.glob( os.path.join( cfg1('path_dbs'), 'Goal.*.db' ) )
-
-    for path in goalDbPaths:
-        name = os.path.basename( path )[5:][:-3]
-        gdb = MorphDb( path )
-
-        # track total unique morphemes + when weighted by frequency
-        # NOTE: a morpheme may occur multiple times within the same sentence, but this frequency is wrt note fields
-        numUniqueReq, numUniqueKnown, numFreqReq, numFreqKnown = 0, 0, 0, 0
-        for m in gdb.db.keys():
-            freq = gdb.db.frequency(m)
-            numUniqueReq += 1
-            numFreqReq   += freq
-            if m in knownDb.db:
-                numUniqueKnown += 1
-                numFreqKnown   += freq
-
-        d['goals'][ name ] = { 'total':numUniqueReq, 'known':numUniqueKnown, 'freqTotal':numFreqReq, 'freqKnown':numFreqKnown }
-
-    saveStats( d )
+    saveStats(d)
     mw.progress.finish()
     return d
 
+
 def getStatsLink():
     d = loadStats()
-    if not d: return ( 'K ???', '????' )
+    if not d:
+        return 'K ???', '????'
 
-    name = 'K %d' % d['totalKnown']
-    lines = []
-    for goalName, g in sorted( d['goals'].items() ):
-        #lines.append( '%s %d/%d %d%%' % ( goalName, g['known'], g['total'], 100.*g['known']/g['total'] ) )
-        #lines.append( '%s %d%%' % ( goalName, 100.*g['known']/g['total'] ) )
-        lines.append( '%s %d%% %d%%' % ( goalName, 100.*g['known']/g['total'], 100.*g['freqKnown']/g['freqTotal'] ) )
-    details = '\n'.join( lines )
-    return ( name, details )
+    total_known = d.get('totalKnown', 0)
+    total_variations = d.get('totalVariations', total_known)
 
-def my_centerLinks( self, _old ):
+    name = 'K %d V %d' % (total_known, total_variations)
+    details = 'Total known morphs'
+    return name, details
+
+
+def on_morph_link_clicked():
+    tooltip("Total known morphs")
+
+
+def on_top_toolbar_did_init_links(links, toolbar):
     name, details = getStatsLink()
-    links = [
-        ["decks", _("Decks"), _("Shortcut key: %s") % "D"],
-        ["add", _("Add"), _("Shortcut key: %s") % "A"],
-        ["browse", _("Browse"), _("Shortcut key: %s") % "B"],
-        ["stats", _("Stats"), _("Shortcut key: %s") % "Shift+S"],
-        ["sync", _("Sync"), _("Shortcut key: %s") % "Y"],
-        ["morph", _(name), _(details)],
-    ]
-    return self._linkHTML( links )
+    links.append(
+        toolbar.create_link(
+            "morph", _(name), on_morph_link_clicked, tip=_(details), id="morph"
+        )
+    )
 
-toolbar.Toolbar._centerLinks = wrap( toolbar.Toolbar._centerLinks, my_centerLinks, 'around' )
+
+gui_hooks.top_toolbar_did_init_links.append(on_top_toolbar_did_init_links)
